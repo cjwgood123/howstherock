@@ -485,45 +485,247 @@ const Index = () => {
                                 `📸 @howstherock\n` +
                                 `👉 나도 하러가기: `;
 
-                              // 모바일에서 더 안정적인 공유 방법
-                              if (navigator.share && navigator.canShare) {
-                                const shareData = {
-                                  title: '바위어때? - 정확한 등반 타이밍',
-                                  text: shareText,
-                                  url: window.location.href
-                                };
-                                
-                                if (navigator.canShare(shareData)) {
-                                  await navigator.share(shareData);
-                                  return;
-                                }
-                              }
-                              
-                              // Web Share API가 지원되지 않거나 실패한 경우 클립보드에 복사
                               const fullText = shareText + window.location.href;
-                              
-                              // 모바일에서 더 안정적인 클립보드 복사
-                              if (navigator.clipboard && navigator.clipboard.writeText) {
-                                await navigator.clipboard.writeText(fullText);
-                                toast({
-                                  title: "클립보드에 복사되었습니다! 📋",
-                                  description: "인스타그램 스토리에 붙여넣기 해주세요.",
-                                  variant: "default",
-                                });
-                              } else {
-                                // 구형 브라우저 지원
+
+                              // iOS Safari 특화 처리
+                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                              const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+                              if (isIOS && isSafari) {
+                                // iOS Safari에서는 특별한 처리
+                                try {
+                                  // 1. 먼저 Web Share API 시도
+                                  if (navigator.share && navigator.canShare) {
+                                    const shareData = {
+                                      title: '바위어때? - 정확한 등반 타이밍',
+                                      text: shareText,
+                                      url: window.location.href
+                                    };
+                                    
+                                    if (navigator.canShare(shareData)) {
+                                      await navigator.share(shareData);
+                                      return;
+                                    }
+                                  }
+                                } catch (shareError) {
+                                  console.log('Web Share API 실패, 대체 방법 사용');
+                                }
+
+                                // 2. iOS Safari에서 안정적인 클립보드 복사
+                                try {
+                                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    await navigator.clipboard.writeText(fullText);
+                                    
+                                    // iOS 사용자를 위한 특별한 안내 모달
+                                    const modal = document.createElement('div');
+                                    modal.style.cssText = `
+                                      position: fixed;
+                                      top: 0;
+                                      left: 0;
+                                      width: 100%;
+                                      height: 100%;
+                                      background: rgba(0,0,0,0.8);
+                                      z-index: 10000;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      padding: 20px;
+                                    `;
+                                    
+                                    const modalContent = document.createElement('div');
+                                    modalContent.style.cssText = `
+                                      background: white;
+                                      padding: 24px;
+                                      border-radius: 16px;
+                                      max-width: 90%;
+                                      text-align: center;
+                                    `;
+                                    
+                                    modalContent.innerHTML = `
+                                      <div style="font-size: 48px; margin-bottom: 16px;">📱</div>
+                                      <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: bold; color: #333;">텍스트가 복사되었습니다!</h3>
+                                      <p style="margin: 0 0 20px 0; font-size: 16px; color: #666; line-height: 1.5;">
+                                        이제 인스타그램 앱을 열어서 스토리에 붙여넣기 해주세요.
+                                      </p>
+                                      <div style="display: flex; gap: 12px; justify-content: center;">
+                                        <button onclick="window.location.href='instagram://story-camera'; this.parentElement.parentElement.parentElement.remove();" 
+                                                style="background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                          📸 인스타그램 열기
+                                        </button>
+                                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                                style="background: #f1f3f4; color: #333; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                          닫기
+                                        </button>
+                                      </div>
+                                      <p style="margin: 16px 0 0 0; font-size: 14px; color: #999;">
+                                        💡 팁: 인스타그램 스토리에서 텍스트를 길게 눌러 붙여넣기 하세요
+                                      </p>
+                                    `;
+                                    
+                                    modal.appendChild(modalContent);
+                                    document.body.appendChild(modal);
+                                    
+                                    return;
+                                  }
+                                } catch (clipboardError) {
+                                  console.log('Clipboard API 실패, 구형 방법 사용');
+                                }
+
+                                // 3. 구형 브라우저 지원 (iOS Safari에서도 작동)
                                 const textArea = document.createElement('textarea');
                                 textArea.value = fullText;
+                                textArea.style.position = 'fixed';
+                                textArea.style.left = '-999999px';
+                                textArea.style.top = '-999999px';
                                 document.body.appendChild(textArea);
+                                textArea.focus();
                                 textArea.select();
-                                document.execCommand('copy');
-                                document.body.removeChild(textArea);
                                 
-                                toast({
-                                  title: "클립보드에 복사되었습니다! 📋",
-                                  description: "인스타그램 스토리에 붙여넣기 해주세요.",
-                                  variant: "default",
-                                });
+                                try {
+                                  const successful = document.execCommand('copy');
+                                  if (successful) {
+                                    // iOS 사용자를 위한 특별한 안내 모달
+                                    const modal = document.createElement('div');
+                                    modal.style.cssText = `
+                                      position: fixed;
+                                      top: 0;
+                                      left: 0;
+                                      width: 100%;
+                                      height: 100%;
+                                      background: rgba(0,0,0,0.8);
+                                      z-index: 10000;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      padding: 20px;
+                                    `;
+                                    
+                                    const modalContent = document.createElement('div');
+                                    modalContent.style.cssText = `
+                                      background: white;
+                                      padding: 24px;
+                                      border-radius: 16px;
+                                      max-width: 90%;
+                                      text-align: center;
+                                    `;
+                                    
+                                    modalContent.innerHTML = `
+                                      <div style="font-size: 48px; margin-bottom: 16px;">📱</div>
+                                      <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: bold; color: #333;">텍스트가 복사되었습니다!</h3>
+                                      <p style="margin: 0 0 20px 0; font-size: 16px; color: #666; line-height: 1.5;">
+                                        이제 인스타그램 앱을 열어서 스토리에 붙여넣기 해주세요.
+                                      </p>
+                                      <div style="display: flex; gap: 12px; justify-content: center;">
+                                        <button onclick="window.location.href='instagram://story-camera'; this.parentElement.parentElement.parentElement.remove();" 
+                                                style="background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                          📸 인스타그램 열기
+                                        </button>
+                                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                                style="background: #f1f3f4; color: #333; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                          닫기
+                                        </button>
+                                      </div>
+                                      <p style="margin: 16px 0 0 0; font-size: 14px; color: #999;">
+                                        💡 팁: 인스타그램 스토리에서 텍스트를 길게 눌러 붙여넣기 하세요
+                                      </p>
+                                    `;
+                                    
+                                    modal.appendChild(modalContent);
+                                    document.body.appendChild(modal);
+                                  } else {
+                                    throw new Error('복사 실패');
+                                  }
+                                } catch (execError) {
+                                  // 4. 최후의 수단: 사용자에게 직접 복사 안내
+                                  toast({
+                                    title: "📱 수동 복사가 필요합니다",
+                                    description: "아래 텍스트를 선택해서 복사해주세요.",
+                                    variant: "default",
+                                  });
+                                  
+                                  // 모달로 텍스트 표시
+                                  const modal = document.createElement('div');
+                                  modal.style.cssText = `
+                                    position: fixed;
+                                    top: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                    background: rgba(0,0,0,0.8);
+                                    z-index: 10000;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 20px;
+                                  `;
+                                  
+                                  const modalContent = document.createElement('div');
+                                  modalContent.style.cssText = `
+                                    background: white;
+                                    padding: 20px;
+                                    border-radius: 12px;
+                                    max-width: 90%;
+                                    max-height: 80%;
+                                    overflow-y: auto;
+                                  `;
+                                  
+                                  modalContent.innerHTML = `
+                                    <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">복사할 텍스트</h3>
+                                    <textarea 
+                                      style="width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px;"
+                                      readonly
+                                    >${fullText}</textarea>
+                                    <div style="margin-top: 15px; text-align: center;">
+                                      <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                              style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 16px;">
+                                        닫기
+                                      </button>
+                                    </div>
+                                  `;
+                                  
+                                  modal.appendChild(modalContent);
+                                  document.body.appendChild(modal);
+                                }
+                                
+                                document.body.removeChild(textArea);
+                              } else {
+                                // 안드로이드 및 기타 브라우저
+                                if (navigator.share && navigator.canShare) {
+                                  const shareData = {
+                                    title: '바위어때? - 정확한 등반 타이밍',
+                                    text: shareText,
+                                    url: window.location.href
+                                  };
+                                  
+                                  if (navigator.canShare(shareData)) {
+                                    await navigator.share(shareData);
+                                    return;
+                                  }
+                                }
+                                
+                                // Web Share API가 지원되지 않거나 실패한 경우 클립보드에 복사
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  await navigator.clipboard.writeText(fullText);
+                                  toast({
+                                    title: "📋 클립보드에 복사되었습니다!",
+                                    description: "인스타그램 스토리에 붙여넣기 해주세요.",
+                                    variant: "default",
+                                  });
+                                } else {
+                                  // 구형 브라우저 지원
+                                  const textArea = document.createElement('textarea');
+                                  textArea.value = fullText;
+                                  document.body.appendChild(textArea);
+                                  textArea.select();
+                                  document.execCommand('copy');
+                                  document.body.removeChild(textArea);
+                                  
+                                  toast({
+                                    title: "📋 클립보드에 복사되었습니다!",
+                                    description: "인스타그램 스토리에 붙여넣기 해주세요.",
+                                    variant: "default",
+                                  });
+                                }
                               }
                             } catch (error) {
                               console.error('공유하기 실패:', error);
@@ -602,6 +804,198 @@ const Index = () => {
                   <div className="text-center mt-4 text-sm text-gray-600">
                     실제 인스타그램 스토리에서 이렇게 보입니다
                   </div>
+                  
+                  {/* 이미지 저장 및 공유 버튼들 */}
+                  <div className="mt-6 space-y-3">
+                    <button
+                      onClick={async () => {
+                        try {
+                          // 오프스크린 요소를 캡처
+                          const storyElement = document.getElementById('story-capture');
+                          if (!storyElement) {
+                            toast({
+                              title: "스토리 미리보기를 찾을 수 없습니다",
+                              description: "잠시 후 다시 시도해주세요.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          const html2canvas = (await import('html2canvas')).default;
+                          const canvas = await html2canvas(storyElement as HTMLElement, {
+                            backgroundColor: '#000000',
+                            width: 1080,
+                            height: 1920,
+                            scale: 1,
+                            useCORS: true,
+                            allowTaint: true
+                          });
+                          // 이미지를 Blob으로 변환
+                          canvas.toBlob(async (blob) => {
+                            if (!blob) {
+                              toast({
+                                title: "이미지 생성 실패",
+                                description: "잠시 후 다시 시도해주세요.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            // iOS Safari 특화 처리
+                            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+                            if (isIOS && isSafari) {
+                              // iOS Safari에서는 파일 다운로드 후 안내
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `bawi-weather-${selectedLocation?.name}-${selectedSpot?.name}.png`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+
+                              // iOS 사용자를 위한 안내 모달
+                              const modal = document.createElement('div');
+                              modal.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0,0,0,0.8);
+                                z-index: 10000;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 20px;
+                              `;
+                              
+                              const modalContent = document.createElement('div');
+                              modalContent.style.cssText = `
+                                background: white;
+                                padding: 24px;
+                                border-radius: 16px;
+                                max-width: 90%;
+                                text-align: center;
+                              `;
+                              
+                              modalContent.innerHTML = `
+                                <div style="font-size: 48px; margin-bottom: 16px;">📸</div>
+                                <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: bold; color: #333;">이미지가 다운로드되었습니다!</h3>
+                                <p style="margin: 0 0 20px 0; font-size: 16px; color: #666; line-height: 1.5;">
+                                  이제 인스타그램 앱을 열어서 스토리에 이미지를 업로드해주세요.
+                                </p>
+                                <div style="display: flex; gap: 12px; justify-content: center;">
+                                  <button onclick="window.location.href='instagram://story-camera'; this.parentElement.parentElement.parentElement.remove();" 
+                                          style="background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                    📸 인스타그램 열기
+                                  </button>
+                                  <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                          style="background: #f1f3f4; color: #333; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: 600; flex: 1;">
+                                    닫기
+                                  </button>
+                                </div>
+                                <p style="margin: 16px 0 0 0; font-size: 14px; color: #999;">
+                                  💡 팁: 인스타그램 스토리에서 갤러리 아이콘을 눌러 다운로드한 이미지를 선택하세요
+                                </p>
+                              `;
+                              
+                              modal.appendChild(modalContent);
+                              document.body.appendChild(modal);
+                            } else {
+                              // 안드로이드 및 기타 브라우저에서는 Web Share API 시도
+                              if (navigator.share && navigator.canShare) {
+                                const files = [new File([blob], `bawi-weather-${selectedLocation?.name}-${selectedSpot?.name}.png`, { type: 'image/png' })];
+                                
+                                if (navigator.canShare({ files })) {
+                                  await navigator.share({
+                                    title: '바위어때? - 정확한 등반 타이밍',
+                                    text: `${selectedLocation?.name} ${selectedSpot?.name} 등반 날씨 체크!`,
+                                    files: files
+                                  });
+                                  return;
+                                }
+                              }
+
+                              // Web Share API가 지원되지 않으면 다운로드
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `bawi-weather-${selectedLocation?.name}-${selectedSpot?.name}.png`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+
+                              toast({
+                                title: "📸 이미지가 다운로드되었습니다!",
+                                description: "인스타그램 앱에서 갤러리에서 이미지를 선택해주세요.",
+                                variant: "default",
+                              });
+                            }
+                          }, 'image/png');
+                        } catch (error) {
+                          console.error('이미지 공유 실패:', error);
+                          toast({
+                            title: "이미지 공유 실패",
+                            description: "수동으로 이미지를 저장해서 공유해주세요.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      className="w-full bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 hover:from-purple-700 hover:via-pink-600 hover:to-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200"
+                    >
+                      📸 인스타그램 스토리에 이미지 공유하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 오프스크린(1080x1920) 스토리 미리보기 */}
+            {showStoryPreview && weatherResult && (
+              <div
+                id="story-capture"
+                style={{
+                  width: 1080,
+                  height: 1920,
+                  position: 'fixed',
+                  left: -99999,
+                  top: 0,
+                  zIndex: -1,
+                  pointerEvents: 'none',
+                  background: 'black',
+                }}
+              >
+                <div style={{width: '100%', height: '100%', position: 'relative', borderRadius: 48, overflow: 'hidden', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', padding: 80}}>
+                  <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.05}}>
+                    <img src="/logo.png" alt="바위 어때 로고" style={{ width: 400, height: 400, objectFit: 'cover', background: '#f5f5e6' }} />
+                  </div>
+                  <div style={{textAlign: 'center', position: 'relative', zIndex: 1, marginTop: 80}}>
+                    <div style={{fontSize: 64, fontWeight: 700, color: '#222'}}>바위어때?</div>
+                    <div style={{fontSize: 40, color: '#333', margin: '32px 0 0 0'}}>{selectedLocation?.name} {selectedSpot?.name}</div>
+                    <div style={{fontSize: 28, color: '#666', margin: '24px 0'}}>
+                      📅 {selectedDate?.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} {selectedDate?.toLocaleDateString('ko-KR', { weekday: 'long' })}
+                    </div>
+                    <div style={{background: 'rgba(255,255,255,0.85)', borderRadius: 32, display: 'inline-block', padding: '40px 60px', margin: '32px 0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'}}>
+                      <div style={{fontSize: 36, fontWeight: 700, color: '#222'}}>⏰ 최적 등반 시간</div>
+                      <div style={{fontSize: 48, fontWeight: 700, color: '#2563eb', marginTop: 12}}>{weatherResult.optimalTime}</div>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'center', gap: 48, fontSize: 28, margin: '32px 0'}}>
+                      <div>
+                        <div style={{color: '#666'}}>🌡️ 온도</div>
+                        <div style={{fontWeight: 700, color: '#222'}}>{weatherResult.hourlyData[0].temperature}°C</div>
+                      </div>
+                      <div>
+                        <div style={{color: '#666'}}>💧 습도</div>
+                        <div style={{fontWeight: 700, color: '#222'}}>{weatherResult.hourlyData[0].humidity}%</div>
+                      </div>
+                      <div>
+                        <div style={{color: '#666'}}>💨 풍속</div>
+                        <div style={{fontWeight: 700, color: '#222'}}>{weatherResult.hourlyData[0].windSpeed}m/s</div>
+                      </div>
+                    </div>
+                    <div style={{fontSize: 28, color: '#666', margin: '32px 0'}}>🎯 정확한 등반 타이밍을 잡아보세요!</div>
+                    <div style={{background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 50%, #f59e42 100%)', color: 'white', borderRadius: 32, display: 'inline-block', padding: '18px 48px', fontSize: 32, fontWeight: 700, marginTop: 24}}>
+                      📸 @howstherock
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -613,3 +1007,4 @@ const Index = () => {
 };
 
 export default Index;
+

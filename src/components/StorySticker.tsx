@@ -165,16 +165,6 @@ export const StorySticker: React.FC<StoryStickerProps> = ({ location, spot, weat
     generateSticker();
   }, [location, spot, weatherResult]);
 
-  const saveImage = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const link = document.createElement('a');
-    link.download = `bawi-weather-${location.name}-${spot.name}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  };
-
   return (
     <div className="flex flex-col items-center gap-4">
       <canvas
@@ -182,12 +172,6 @@ export const StorySticker: React.FC<StoryStickerProps> = ({ location, spot, weat
         className="max-w-full rounded-lg shadow-lg"
         style={{ maxHeight: '80vh' }}
       />
-      <button
-        onClick={saveImage}
-        className="rounded-lg bg-gray-700 px-6 py-3 text-white hover:bg-gray-600 transition-colors"
-      >
-        이미지 저장하기
-      </button>
     </div>
   );
 }; 
